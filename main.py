@@ -7,7 +7,6 @@ from tkinter import Tk, filedialog, messagebox, Toplevel, Button, Label, Frame, 
 from PIL import Image, ImageTk
 from tkinter import filedialog, messagebox, Button
 
-from camera import start_camera
 from utils import focus_powerpoint_window, run_powerpoint, initialize_listener
 
 # Initialize mouse listener for focusing PowerPoint
@@ -20,7 +19,6 @@ root.title("AIR TRACKER")
 root.geometry("1350x700")  # Set window size
 root.configure(bg="#a91f2d")
 
-
 # Header
 header_label = tk.Label(
     root,
@@ -31,10 +29,9 @@ header_label = tk.Label(
 )
 header_label.pack(pady=10)
 
-
 # Load and display the image
 try:
-    image_path = "hand.png"
+    image_path = r"AIR-TRACKER\hand.png"  # Use raw string
     original_image = Image.open(image_path)
     resized_image = original_image.resize((300, 300))
     my_image = ImageTk.PhotoImage(resized_image)
@@ -46,11 +43,10 @@ except Exception as e:
     messagebox.showerror("Error", f"Could not load image: {e}")
 
 # Set the icon on Windows
-icon_path = "hand.ico"
+icon_path = r'AIR-TRACKER\hand.ico'  # Use raw string
 if os.name == 'nt':  # Check if running on Windows
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(u"MyAppID")
     root.iconbitmap(icon_path)
-
 
 def run_presentation():
     ppt_file = filedialog.askopenfilename(
