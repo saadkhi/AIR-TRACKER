@@ -1,133 +1,295 @@
+import os
 import cv2
-import threading
 from PIL import Image, ImageTk
 from cvzone.HandTrackingModule import HandDetector
 import pyautogui
 import time
-import numpy as np
-import tensorflow as tf
 from tkinter import Label
-from utils import zoom_in_slide  # Import the zoom in function
+import comtypes.client
+import keras
+from canvas_handler import CanvasHandler
 
-# Available backend options are: "jax", "torch", "tensorflow".
-import os
+# Set Keras backend to "jax"
 os.environ["KERAS_BACKEND"] = "jax"
 
-import keras
-from huggingface_hub import hf_hub_download
+# Import Keras and load the model with error handling
+try:
+    model = keras.saving.load_model("hf://saaday5/hand_gesture_model")
+except FileNotFoundError as e:
+    print(f"Error loading model: {e}")
 
-# Download the model file from Hugging Face Hub
-model_path = hf_hub_download(repo_id="saaday5/hand_gesture_model", filename="Hand_Gest_Model.keras")
+class CameraHandler:
+    """Handles the camera feed and gesture detection."""
 
-# Load the trained model
-model = keras.models.load_model(model_path)
+    def __init__(self, camera_label: Label, root):
+        self.camera_label = camera_label
+        self.root = root  # Store the root window
+        self.detector = HandDetector(detectionCon=0.7, maxHands=1)
+        self.cap = cv2.VideoCapture(0)
+        self.width, self.height = 300, 200
+        self.video_toggle_cooldown = False
+        self.slide_toggle_cooldown = False
+        self.zoom_out_cooldown = False
+        self.zoom_in_cooldown = False
+        self.enter_cooldown = False
+        self.close_cooldown = False
+        self.video_playing = False
+        self.is_pen_active = False
+        self.is_highlighter_active = False
+        self.drawing_active = False
+        self.last_x, self.last_y = None, None
+        self.screen_width, self.screen_height = pyautogui.size()
+        self.drawing_positions = [[]]  # List to store drawing strokes
+        self.canvas_handler = CanvasHandler(root, self) # Pass root to CanvasHandler
+    
+    def set_drawing_color(self, color):
+        """Sets the current drawing color."""
+        self.canvas_handler.current_color = color
 
-# Initialize the hand detector
-detector = HandDetector(detectionCon=0.7, maxHands=1)
+    def start_camera(self):
+        """Starts the camera feed and initializes gesture detection."""
+        if not self.cap.isOpened():
+            print("Error: Could not open video device.")
+            return
 
-# Flags for cooldowns and video state
-video_toggle_cooldown = False
-slide_toggle_cooldown = False
-zoom_out_cooldown = False
-enter_key_cooldown = False
-video_playing = False
+        self.cap.set(3, self.width)  # Set width
+        self.cap.set(4, self.height)  # Set height
 
-def preprocess_hand_image(hand_bbox, img):
-    """Extracts and preprocesses the hand region for the model."""
-    x, y, w, h = hand_bbox
-    hand_img = img[y:y + h, x:x + w]
-    hand_img = cv2.resize(hand_img, (64, 64))  # Assuming the model expects 64x64 input
-    hand_img = cv2.cvtColor(hand_img, cv2.COLOR_BGR2RGB)
-    hand_img = hand_img / 255.0  # Normalize to [0, 1]
-    hand_img = np.expand_dims(hand_img, axis=0)  # Add batch dimension
-    return hand_img
+        self.update_frame()
 
-def process_gesture(gesture):
-    """Processes the detected gesture and triggers corresponding actions."""
-    if gesture == [1, 1, 0, 0, 0] and not video_toggle_cooldown:
-        click_video()  # Toggle video playback
-        video_playing = not video_playing  # Update playback state
-        video_toggle_cooldown = True
-        camera_label.after(2000, reset_video_toggle_cooldown)  # 2-second cooldown
+    def update_frame(self):
+        """Captures frames from the camera and processes gestures."""
+        success, img = self.cap.read()
+        if success:
+            img = cv2.flip(img, 1)
+            hands, img = self.detector.findHands(img)
 
-    elif gesture == [1, 0, 0, 0, 0] and not slide_toggle_cooldown:  # Thumb up to move left
-        move_slide_backward()
-        slide_toggle_cooldown = True
-        camera_label.after(1000, reset_slide_toggle_cooldown)  # 1-second cooldown
+            if hands:
+                hand = hands[0]
+                fingers_up = self.detector.fingersUp(hand)
+                lm_index = hand['lmList'][8] 
+                lmlist = hand['lmList']
+                indexfinger = lmlist[8][0], lmlist[8][1]  # Index finger tip coordinates
+                
+                # Map camera coordinates to screen coordinates
+                screen_x = int(self.screen_width * (indexfinger[0] / self.width))
+                screen_y = int(self.screen_height * (indexfinger[1] / self.height))
 
-    elif gesture == [0, 0, 0, 0, 1] and not slide_toggle_cooldown:  # Pinky up to move right
-        move_slide_forward()
-        slide_toggle_cooldown = True
-        camera_label.after(1000, reset_slide_toggle_cooldown)  # 1-second cooldown
+                self.handle_gestures(fingers_up, screen_x, screen_y, indexfinger)
 
-    elif gesture == [0, 1, 1, 1, 1] and not zoom_out_cooldown:  # Zoom-out gesture: 4 fingers without thumb (3-second cooldown)
-        trigger_zoom_out()
-        zoom_out_cooldown = True
-        camera_label.after(3000, reset_zoom_out_cooldown)  # 3-second cooldown
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img_pil = Image.fromarray(img_rgb)
+            img_tk = ImageTk.PhotoImage(image=img_pil)
 
-    elif gesture == [0, 1, 1, 1, 0] and not enter_key_cooldown:  # Enter key gesture: Index, middle, and ring fingers up (2-second cooldown)
-        trigger_enter_key()
-        enter_key_cooldown = True
-        camera_label.after(2000, reset_enter_key_cooldown)  # 2-second cooldown
+            self.camera_label.img_tk = img_tk
+            self.camera_label.config(image=img_tk)
 
-    elif gesture == [0, 0, 1, 1, 1]:  # Zoom-in gesture: Middle, ring, and pinky fingers up
-        zoom_in_slide()
+        self.camera_label.after(30, self.update_frame)
 
-def click_video():
-    """Simulates a mouse click to toggle video playback."""
-    try:
-        screen_width, screen_height = pyautogui.size()
-        pyautogui.moveTo(screen_width // 2 + 50, screen_height // 2)
-        time.sleep(1)
-        pyautogui.moveTo(screen_width // 2, screen_height // 2)
-        pyautogui.hotkey('alt', 'p')
-    except Exception as e:
-        print(f"Error toggling video: {e}")
+    def handle_gestures(self, fingers_up, screen_x, screen_y, indexfinger):
+        """Handles gestures based on finger configurations."""
+        # Canvas activation/deactivation
+        if fingers_up == [0, 1, 0, 0, 1]:  # Index and pinky fingers
+            if not self.canvas_handler.canvas_cooldown:
+                self.canvas_handler.toggle_canvas()
+                self.canvas_handler.canvas_cooldown = True
+                self.camera_label.after(2000, self.canvas_handler.reset_canvas_cooldown)
+            else:
+                # If cooldown is active, do not toggle the canvas
+                pass
+        
+        if fingers_up == [0, 1, 0, 0, 0]:  # Only index finger up for drawing
+            if self.canvas_handler.canvas:
+                x, y = screen_x, screen_y
+                if self.last_x is not None and self.last_y is not None:
+                    self.canvas_handler.canvas.create_line(
+                        self.last_x, self.last_y, x, y, fill=self.canvas_handler.current_color, width=5
+                    )
+                self.last_x, self.last_y = x, y
+                self.drawing_positions[-1].append((x, y))  # Store the current position
 
-def move_slide_forward():
-    """Simulates the 'right' arrow key to move forward in the presentation."""
-    try:
-        pyautogui.press('right')
-    except Exception as e:
-        print(f"Error moving forward: {e}")
+                # Check if the pointer is over any color button
+                self.canvas_handler.check_pointer_over_buttons(x, y)
+            else:
+                self.last_x, self.last_y = None, None
 
-def move_slide_backward():
-    """Simulates the 'left' arrow key to move backward in the presentation."""
-    try:
-        pyautogui.press('left')
-    except Exception as e:
-        print(f"Error moving backward: {e}")
+        # Pointer mode (index and middle finger up)
+        elif fingers_up == [0, 1, 1, 0, 0]:
+            if self.canvas_handler.canvas:
+                self.canvas_handler.canvas.delete("pointer")
+                self.canvas_handler.canvas.create_oval(
+                    screen_x - 5, screen_y - 5, screen_x + 5, screen_y + 5,
+                    fill=self.canvas_handler.current_color, outline="black", tags="pointer"
+                )
+                self.last_x, self.last_y = None, None  # Reset drawing positions
 
-def trigger_zoom_out():
-    """Simulates zoom-out action."""
-    try:
-        pyautogui.hotkey('ctrl', '-')
-    except Exception as e:
-        print(f"Error performing zoom-out: {e}")
+                # Check if the pointer is over any color button
+                self.canvas_handler.check_pointer_over_buttons(screen_x, screen_y)
 
-def trigger_enter_key():
-    """Simulates pressing the 'Enter' key."""
-    try:
-        pyautogui.press('enter')
-    except Exception as e:
-        print(f"Error pressing Enter key: {e}")
+        # Video control with thumb and index finger
+        if fingers_up == [1, 1, 0, 0, 0] and not self.video_toggle_cooldown:
+            self.click_video()
+            self.video_playing = not self.video_playing
+            self.video_toggle_cooldown = True
+            self.camera_label.after(2000, self.reset_video_toggle_cooldown)
 
-def reset_video_toggle_cooldown():
-    """Resets the cooldown for video toggle."""
-    global video_toggle_cooldown
-    video_toggle_cooldown = False
+        # Enter key with last three fingers
+        elif fingers_up == [0, 0, 1, 1, 1] and not self.enter_cooldown:  # Middle, ring, and pinky for enter
+            pyautogui.press('enter')
+            self.enter_cooldown = True
+            self.camera_label.after(1000, self.reset_enter_cooldown)
 
-def reset_slide_toggle_cooldown():
-    """Resets the cooldown for slide navigation."""
-    global slide_toggle_cooldown
-    slide_toggle_cooldown = False
+        # Slide navigation
+        elif fingers_up == [1, 0, 0, 0, 0] and not self.slide_toggle_cooldown:  # Thumb only for previous
+            self.move_slide_backward()
+            self.slide_toggle_cooldown = True
+            self.camera_label.after(1000, self.reset_slide_toggle_cooldown)
+        elif fingers_up == [0, 0, 0, 0, 1] and not self.slide_toggle_cooldown:  # Pinky only for next
+            self.move_slide_forward()
+            self.slide_toggle_cooldown = True
+            self.camera_label.after(1000, self.reset_slide_toggle_cooldown)
 
-def reset_zoom_out_cooldown():
-    """Resets the cooldown for zoom out."""
-    global zoom_out_cooldown
-    zoom_out_cooldown = False
+        # Zoom controls
+        elif fingers_up == [0, 1, 1, 1, 0] and not self.zoom_in_cooldown:  # Three middle fingers for zoom in
+            self.trigger_zoom_in()
+            self.zoom_in_cooldown = True
+            self.camera_label.after(1500, self.reset_zoom_in_cooldown)
+        elif fingers_up == [0, 1, 1, 1, 1] and not self.zoom_out_cooldown:  # Four fingers for zoom out
+            self.trigger_zoom_out()
+            self.zoom_out_cooldown = True
+            self.camera_label.after(1500, self.reset_zoom_out_cooldown)
 
-def reset_enter_key_cooldown():
-    """Resets the cooldown for enter key."""
-    global enter_key_cooldown
-    enter_key_cooldown = False
+        # Close application with thumb and pinky up
+        elif fingers_up == [1, 0, 0, 0, 1] and not self.close_cooldown:
+            self.close_application()
+            self.close_cooldown = True
+            self.camera_label.after(2000, self.reset_close_cooldown)
+
+    def handle_pen_mode(self, screen_x, screen_y):
+        """Handles pen drawing mode."""
+        if not self.is_pen_active:
+            self.deactivate_highlighter()
+            pyautogui.hotkey('ctrl', 'p')
+            self.is_pen_active = True
+            self.last_x, self.last_y = screen_x, screen_y  # Store initial point
+            pyautogui.moveTo(screen_x, screen_y)  # Move cursor to start point
+            time.sleep(0.1)  # Small delay to stabilize cursor movement
+
+        self.drawing_active = True
+        pyautogui.mouseDown(button='left')
+        pyautogui.moveTo(screen_x, screen_y)  # Ensure drawing starts from initial point
+        self.last_x, self.last_y = screen_x, screen_y
+
+    def handle_highlighter_mode(self, screen_x, screen_y):
+        """Handles highlighter drawing mode."""
+        if not self.is_highlighter_active:
+            self.deactivate_pen()
+            pyautogui.hotkey('ctrl', 'i')
+            self.is_highlighter_active = True
+            self.last_x, self.last_y = screen_x, screen_y  # Store initial point
+            pyautogui.moveTo(screen_x, screen_y)  # Move cursor to start point
+            time.sleep(0.1)  # Small delay to stabilize cursor movement
+
+        self.drawing_active = True
+        pyautogui.mouseDown(button='left')
+        pyautogui.moveTo(screen_x, screen_y)  # Ensure drawing starts from initial point
+        self.last_x, self.last_y = screen_x, screen_y
+
+    def deactivate_drawing_tools(self):
+        """Deactivates all drawing tools."""
+        if self.drawing_active:
+            pyautogui.mouseUp(button='left')
+        self.drawing_active = False
+        self.is_pen_active = False
+        self.is_highlighter_active = False
+        self.last_x, self.last_y = None, None
+    def deactivate_pen(self):
+        """Deactivates pen tool."""
+        if self.is_pen_active:
+            pyautogui.mouseUp(button='left')
+            self.is_pen_active = False
+
+    def deactivate_highlighter(self):
+        """Deactivates highlighter tool."""
+        if self.is_highlighter_active:
+            pyautogui.mouseUp(button='left')
+            self.is_highlighter_active = False
+
+    def click_video(self):
+        """Simulates a mouse click to toggle video playback."""
+        try:
+            pyautogui.moveTo(self.screen_width // 2 + 50, self.screen_height // 2)
+            time.sleep(1)
+            pyautogui.moveTo(self.screen_width // 2, self.screen_height // 2)
+            pyautogui.hotkey('alt', 'p')
+        except Exception as e:
+            print(f"Error toggling video: {e}")
+
+    def move_slide_forward(self):
+        """Simulates the 'right' arrow key to move forward in the presentation."""
+        try:
+            pyautogui.press('right')
+        except Exception as e:
+            print(f"Error moving forward: {e}")
+
+    def move_slide_backward(self):
+        """Simulates the 'left' arrow key to move backward in the presentation."""
+        try:
+            pyautogui.press('left')
+        except Exception as e:
+            print(f"Error moving backward: {e}")
+
+    def trigger_zoom_out(self):
+        """Simulates zoom-out action."""
+        try:
+            pyautogui.hotkey('ctrl', '-')
+        except Exception as e:
+            print(f"Error performing zoom-out: {e}")
+
+    def trigger_zoom_in(self):
+        """Simulates zoom-in action."""
+        try:
+            pyautogui.hotkey('ctrl', '+')
+        except Exception as e:
+            print(f"Error performing zoom-in: {e}")
+
+    def close_application(self):
+        """Closes the application with quick cleanup."""
+        try:
+            # Force quit PowerPoint first to prevent any prompts
+            os.system('taskkill /F /IM POWERPNT.EXE')
+            
+            # Release camera resources
+            if hasattr(self, 'cap') and self.cap is not None:
+                self.cap.release()
+            cv2.destroyAllWindows()
+
+            # Immediate exit
+            os._exit(0)
+        except:
+            # Force exit if any error occurs
+            os._exit(0)
+
+    def reset_video_toggle_cooldown(self):
+        self.video_toggle_cooldown = False
+
+    def reset_slide_toggle_cooldown(self):
+        self.slide_toggle_cooldown = False
+
+    def reset_zoom_out_cooldown(self):
+        self.zoom_out_cooldown = False
+
+    def reset_zoom_in_cooldown(self):
+        self.zoom_in_cooldown = False
+
+    def reset_enter_cooldown(self):
+        """Resets the enter key cooldown."""
+        self.enter_cooldown = False
+
+    def reset_close_cooldown(self):
+        self.close_cooldown = False
+
+def start_camera(camera_label):
+    """Starts the camera feed and initializes gesture detection."""
+    camera_handler = CameraHandler(camera_label, camera_label.master)
+    camera_handler.start_camera()
