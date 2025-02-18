@@ -5,14 +5,13 @@ import threading
 import pythoncom
 from pynput.mouse import Listener
 from tkinter import messagebox, Toplevel, Label
-from camera import start_camera
 import win32gui
 import win32con
 import subprocess
+import pyautogui
 
 overlay_window = None
 powerpoint_lock = threading.Lock()
-
 
 def safe_com_call(func, max_retries=5, delay=1, *args, **kwargs):
     """
@@ -29,7 +28,6 @@ def safe_com_call(func, max_retries=5, delay=1, *args, **kwargs):
                 print(f"COM call failed after {max_retries} attempts.")
                 raise e
 
-
 def initialize_listener():
     """
     Starts a mouse listener to focus PowerPoint on mouse clicks.
@@ -40,7 +38,6 @@ def initialize_listener():
 
     listener = Listener(on_click=on_click)
     listener.start()
-
 
 def focus_powerpoint_window():
     """
@@ -58,7 +55,6 @@ def focus_powerpoint_window():
     except Exception as e:
         print(f"Error focusing PowerPoint window: {e}")
 
-
 def close_activation_dialog():
     """
     Attempts to find and close the Office activation dialog.
@@ -74,7 +70,6 @@ def close_activation_dialog():
     except Exception as e:
         print(f"Error while closing activation dialog: {e}")
 
-
 def force_kill_powerpoint():
     """
     Forcefully kills all running PowerPoint processes.
@@ -85,7 +80,6 @@ def force_kill_powerpoint():
         print("All PowerPoint processes terminated.")
     except subprocess.CalledProcessError as e:
         print(f"Error forcefully killing PowerPoint processes: {e}")
-
 
 def wait_for_powerpoint_ready(powerpoint, timeout=30):
     """
@@ -106,7 +100,6 @@ def wait_for_powerpoint_ready(powerpoint, timeout=30):
         if time.time() - start_time > timeout:
             raise Exception("PowerPoint did not become ready in time.")
         time.sleep(1)
-
 
 def run_powerpoint(ppt_file, root):
     """
@@ -183,7 +176,6 @@ def run_powerpoint(ppt_file, root):
             overlay_window.destroy()
         pythoncom.CoUninitialize()
 
-
 def display_camera_overlay(root):
     """
     Displays the camera overlay window with a live camera feed.
@@ -203,3 +195,6 @@ def display_camera_overlay(root):
     camera_label.pack()
 
     threading.Thread(target=start_camera, args=(camera_label,), daemon=True).start()
+
+def zoom_in_slide():
+    pyautogui.hotkey('ctrl', '+')  # Simulate Ctrl + + to zoom in
