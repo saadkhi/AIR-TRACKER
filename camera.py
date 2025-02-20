@@ -41,10 +41,24 @@ class CameraHandler:
         self.screen_width, self.screen_height = pyautogui.size()
         self.drawing_positions = [[]]  # List to store drawing strokes
         self.canvas_handler = CanvasHandler(root, self) # Pass root to CanvasHandler
+        self.current_tool = 'pen'  # Default tool
     
     def set_drawing_color(self, color):
         """Sets the current drawing color."""
         self.canvas_handler.current_color = color
+
+    def set_drawing_tool(self, tool):
+        """Sets the current drawing tool."""
+        self.current_tool = tool
+        if tool == 'pen':
+            self.is_pen_active = True
+            self.is_highlighter_active = False
+        elif tool == 'highlighter':
+            self.is_pen_active = False
+            self.is_highlighter_active = True
+        elif tool == 'eraser':
+            self.is_pen_active = False
+            self.is_highlighter_active = False
 
     def start_camera(self):
         """Starts the camera feed and initializes gesture detection."""
@@ -298,6 +312,7 @@ class CameraHandler:
         self.enter_cooldown = False
 
     def reset_close_cooldown(self):
+        """Resets the close application cooldown."""
         self.close_cooldown = False
 
 def start_camera(camera_label):
