@@ -158,7 +158,6 @@ class CanvasHandler:
 
     def on_hover(self, btn, color):
         """Handles hover effect for color buttons."""
-        self.canvas.itemconfig(btn, fill="lightgray")  # Temporarily highlight the button
         self.canvas.config(cursor="crosshair")  # Change cursor shape
         self.root.config(cursor="crosshair")  
 
@@ -168,7 +167,6 @@ class CanvasHandler:
 
     def on_leave(self, btn, color):
         """Handles leaving the hover effect for color buttons."""
-        self.canvas.itemconfig(btn, fill=color)  # Restore original button color
         self.canvas.config(cursor="arrow")  # Reset cursor
         self.root.config(cursor="arrow")
 
