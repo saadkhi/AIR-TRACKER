@@ -5,18 +5,18 @@ from cvzone.HandTrackingModule import HandDetector
 import pyautogui
 import time
 from tkinter import Label
-# import comtypes.client
-# import keras
+import comtypes.client
+import keras
 from canvas_handler import CanvasHandler
 
-# # Set Keras backend to "jax"
-# os.environ["KERAS_BACKEND"] = "jax"
+# Set Keras backend to "jax"
+os.environ["KERAS_BACKEND"] = "jax"
 
-# # Import Keras and load the model with error handling
-# try:
-#     model = keras.saving.load_model("hf://saaday5/hand_gesture_model")
-# except FileNotFoundError as e:
-#     print(f"Error loading model: {e}")
+# Import Keras and load the model with error handling
+try:
+    model = keras.saving.load_model("hf://saaday5/hand_gesture_model")
+except FileNotFoundError as e:
+    print(f"Error loading model: {e}")
 
 class CameraHandler:
     """Handles the camera feed and gesture detection."""
