@@ -19,6 +19,13 @@ class CanvasHandler:
         self.tool_buttons = []  # List to store tool buttons
         self.canvas_x_offset = 0  # Initial offset, starts at 0
         self.canvas_shift_amount = 20  # Pixels to shift right each time
+        self.is_drawing_mode = False  # New state variable to track drawing mode
+
+    def set_drawing_mode(self, is_drawing):
+        """Set the drawing mode."""
+        self.is_drawing_mode = is_drawing
+        if not is_drawing:
+            self.last_x, self.last_y = None, None  # Reset drawing positions
 
 
     def create_canvas_overlay(self):
@@ -50,25 +57,24 @@ class CanvasHandler:
 
         self.cursor = self.canvas.create_oval(0, 0, 20, 20, fill=self.current_color, outline='black')
 
-
     def add_color_palette(self):
         """Adds a color palette inside the canvas."""
         colors = ['black', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']  # Define the colors for the palette
 
-        button_size = 70
-        padding = 5
+        button_size = 40  # Reduced button size
+        padding = 5  # Reduced padding between buttons
         total_width = len(colors) * (button_size + padding) - padding  # Calculate total width of the palette
         screen_width = self.root.winfo_screenwidth()
 
         # Position the palette at the center top
         x_start = (screen_width - total_width) // 2
-        y = 10  # Keep it at the top
+        y = 40  # Slightly up from the top
 
         for color in colors:
             button = self.canvas.create_rectangle(
                 x_start, y, x_start + button_size, y + button_size,
                 fill=color,
-                outline='black'
+                outline='black'  # Black boundary for color buttons
             )
             self.color_buttons.append((button, color))
 
@@ -89,14 +95,14 @@ class CanvasHandler:
             ('eraser', r"media\eraser.png")
         ]
 
-        button_size = 70
-        padding = 5
+        button_size = 40  # Reduced button size
+        padding = 5  # Reduced padding between buttons
         total_width = (len(tools) + len(self.color_buttons)) * (button_size + padding) - padding  # Calculate total width of the tool buttons and color buttons
         screen_width = self.root.winfo_screenwidth()
 
         # Position the tool buttons and color buttons in the same line
         x_start = (screen_width - total_width) // 2
-        y = 10  # Position at the top
+        y = 40  # Slightly up from the top
 
         # Add color buttons first
         for button, color in self.color_buttons:
@@ -110,6 +116,12 @@ class CanvasHandler:
                 icon_image = Image.open(image_path)
                 icon_image = icon_image.resize((button_size, button_size), Image.LANCZOS)
                 icon_photo = ImageTk.PhotoImage(icon_image)
+
+                # Create a rectangle around the tool button for the boundary
+                boundary = self.canvas.create_rectangle(
+                    x_start, y, x_start + button_size, y + button_size,
+                    outline='black'  # Black boundary for tool buttons
+                )
 
                 # Create the button with the icon
                 button = self.canvas.create_image(
@@ -129,7 +141,6 @@ class CanvasHandler:
                 x_start += button_size + padding  # Move to the next tool position
             except Exception as e:
                 print(f"Error loading icon for {tool}: {e}")
-
 
     def set_tool(self, tool):
         """Sets the current tool (pen, highlighter, eraser)."""
@@ -157,22 +168,26 @@ class CanvasHandler:
             self.camera_handler.set_drawing_tool(self.current_tool)
 
     def on_hover(self, btn, color):
-        """Handles hover effect for color buttons."""
-        self.canvas.config(cursor="crosshair")  # Change cursor shape
-        self.root.config(cursor="crosshair")  
+        print(f"Hovering over: {btn}")  # Debugging
+        self.canvas.itemconfig(btn, fill="lightgray")
+        self.canvas.config(cursor="crosshair")
+        self.root.config(cursor="crosshair")
 
-        # Change pointer to grey while hovering
-        self.previous_color = self.current_color  # Save the previous color
-        self.canvas.itemconfig(self.cursor, fill="grey")
+        # Store the current pointer color before changing
+        self.previous_color = self.canvas.itemcget(self.cursor, "fill")
+        self.canvas.itemconfig(self.cursor, fill="grey")  # Change pointer to grey while hovering
 
     def on_leave(self, btn, color):
-        """Handles leaving the hover effect for color buttons."""
-        self.canvas.config(cursor="arrow")  # Reset cursor
+        print(f"Leaving: {btn}")  # Debugging
+        self.canvas.itemconfig(btn, fill=color)
+        self.canvas.config(cursor="arrow")
         self.root.config(cursor="arrow")
 
-        # Restore previous color after leaving the button
-        self.canvas.itemconfig(self.cursor, fill=self.previous_color)
-        
+        # Restore the pointer to its previous color
+        if hasattr(self, "previous_color"):
+            self.canvas.itemconfig(self.cursor, fill=self.previous_color)
+
+
     def on_tool_hover(self, btn, tool):
         """Handles hover effect for tool buttons."""
         self.canvas.config(cursor="crosshair")  # Change cursor shape
@@ -214,18 +229,32 @@ class CanvasHandler:
             self.is_highlighter_active = False
 
     def draw_on_canvas(self, event):
-        """Draws on the canvas based on the current cursor position and selected color."""
+        """Draws on the canvas but blocks strokes over buttons."""
+        if not self.is_drawing_mode:
+            return
+
         x, y = event.x, event.y
+
+        # 🚀 BLOCK DRAWING OVER BUTTONS!
+        if self.check_pointer_over_buttons(x, y):
+            return  # Stop drawing if pointer is over a button
+
+        # Set different line widths based on the current tool
+        if self.current_tool == 'pen':
+            line_width = 3  # Default pen width
+        elif self.current_tool == 'highlighter':
+            line_width = 50  # Thicker line for highlighter
+        elif self.current_tool == 'eraser':
+            line_width = 50  # Thicker line for eraser
+        else:
+            line_width = 3  # Default width for other tools
+
         if self.last_x and self.last_y:
-            if self.current_tool == 'highlighter':
-                # Use a thicker stroke for the highlighter
-                self.canvas.create_line(self.last_x, self.last_y, x, y, fill=self.current_color, width=10, capstyle="round")
-            else:
-                self.canvas.create_line(self.last_x, self.last_y, x, y, fill=self.current_color, width=3, capstyle="round")
+            self.canvas.create_line(self.last_x, self.last_y, x, y, fill=self.current_color, width=line_width, capstyle="round")
+
         self.last_x, self.last_y = x, y
 
-        # Check if the pointer is over any color button
-        self.check_pointer_over_buttons(x, y)
+
 
     def reset_last_position(self, event):
         """Resets the last drawing position."""
@@ -233,6 +262,8 @@ class CanvasHandler:
 
     def check_pointer_over_buttons(self, x, y):
         """Checks if the pointer is over any color or tool button and changes the color or tool accordingly."""
+        hovered = False  # Track if the pointer is over any button
+
         # Check color buttons
         for button, color in self.color_buttons:
             coords = self.canvas.coords(button)
@@ -241,7 +272,9 @@ class CanvasHandler:
                 if x1 <= x <= x2 and y1 <= y <= y2:
                     self.set_color(color)
                     self.on_hover(button, color)
-                    return
+                    hovered = True  # Pointer is on a button
+                else:
+                    self.on_leave(button, color)  # Reset hover effect when leaving
 
         # Check tool buttons (pen, highlighter, eraser)
         for button, tool, _ in self.tool_buttons:
@@ -249,11 +282,20 @@ class CanvasHandler:
             if coords and len(coords) == 2:  # Image-based buttons have (x, y) coords
                 x1, y1 = coords
                 x2, y2 = x1 + 70, y1 + 70  # Assume button size is 70x70
-
                 if x1 <= x <= x2 and y1 <= y <= y2:
                     self.set_tool(tool)
                     self.on_tool_hover(button, tool)  # Visual effect when hovering
-                    return
+                    hovered = True  # Pointer is on a button
+                else:
+                    self.on_tool_leave(button, tool)  # Reset hover effect when leaving
+
+        # If the pointer is not over any button, reset cursor style
+        if not hovered:
+            self.canvas.config(cursor="arrow")
+            self.root.config(cursor="arrow")
+            self.root.config(cursor="arrow")
+
+        return hovered  # Return whether the pointer is over a button
 
     def toggle_canvas(self):
         """Toggles the canvas overlay on and off without shifting position."""

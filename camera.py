@@ -5,25 +5,25 @@ from cvzone.HandTrackingModule import HandDetector
 import pyautogui
 import time
 from tkinter import Label
-import comtypes.client
-import keras
+# import comtypes.client
+# import keras
 from canvas_handler import CanvasHandler
 
-# Set Keras backend to "jax"
-os.environ["KERAS_BACKEND"] = "jax"
+# # Set Keras backend to "jax"
+# os.environ["KERAS_BACKEND"] = "jax"
 
-# Import Keras and load the model with error handling
-try:
-    model = keras.saving.load_model("hf://saaday5/hand_gesture_model")
-except FileNotFoundError as e:
-    print(f"Error loading model: {e}")
+# # Import Keras and load the model with error handling
+# try:
+#     model = keras.saving.load_model("hf://saaday5/hand_gesture_model")
+# except FileNotFoundError as e:
+#     print(f"Error loading model: {e}")
 
 class CameraHandler:
     """Handles the camera feed and gesture detection."""
 
-    def __init__(self, camera_label: Label, root):
+    def __init__(self, camera_label, master):
         self.camera_label = camera_label
-        self.root = root  # Store the root window
+        self.master = master
         self.detector = HandDetector(detectionCon=0.7, maxHands=1)
         self.cap = cv2.VideoCapture(0)
         self.width, self.height = 300, 200
@@ -40,7 +40,7 @@ class CameraHandler:
         self.last_x, self.last_y = None, None
         self.screen_width, self.screen_height = pyautogui.size()
         self.drawing_positions = [[]]  # List to store drawing strokes
-        self.canvas_handler = CanvasHandler(root, self) # Pass root to CanvasHandler
+        self.canvas_handler = CanvasHandler(master, self) # Pass root to CanvasHandler
         self.current_tool = 'pen'  # Default tool
     
     def set_drawing_color(self, color):
@@ -102,10 +102,8 @@ class CameraHandler:
 
     def handle_gestures(self, fingers_up, screen_x, screen_y, indexfinger):
         """Handles gestures based on finger configurations."""
-        print(f"Fingers up: {fingers_up}")
         # Canvas activation/deactivation
         if fingers_up == [0, 1, 0, 0, 1]:  # Index and pinky fingers
-            print("Gesture detected: Toggle Canvas")
             if not self.canvas_handler.canvas_cooldown:
                 self.canvas_handler.toggle_canvas()
                 self.canvas_handler.canvas_cooldown = True
@@ -114,25 +112,32 @@ class CameraHandler:
                 # If cooldown is active, do not toggle the canvas
                 pass
         
-        if fingers_up == [0, 1, 0, 0, 0]:  # Only index finger up for drawing
-            print("Gesture detected: Drawing")
+        if fingers_up == [0, 1, 0, 0, 0]:  # Index finger up (drawing mode with pointer)
+            self.canvas_handler.set_drawing_mode(True)
             if self.canvas_handler.canvas:
                 x, y = screen_x, screen_y
+
+                # Ensure pointer moves along while drawing
+                self.canvas_handler.canvas.delete("pointer")
+                self.canvas_handler.canvas.create_oval(
+                    x - 5, y - 5, x + 5, y + 5,
+                    fill=self.canvas_handler.current_color, outline="black", tags="pointer"
+                )
+
+                # 🚀 BLOCK DRAWING OVER BUTTONS!
+                if self.canvas_handler.check_pointer_over_buttons(x, y):
+                    self.canvas_handler.set_drawing_mode(False)
+                    return  
+
                 if self.last_x is not None and self.last_y is not None:
                     self.canvas_handler.canvas.create_line(
-                        self.last_x, self.last_y, x, y, fill=self.canvas_handler.current_color, width=5
+                        self.last_x, self.last_y, x, y, fill=self.canvas_handler.current_color, width=5, smooth=True
                     )
+
                 self.last_x, self.last_y = x, y
-                self.drawing_positions[-1].append((x, y))  # Store the current position
 
-                # Check if the pointer is over any color button
-                self.canvas_handler.check_pointer_over_buttons(x, y)
-            else:
-                self.last_x, self.last_y = None, None
-
-        # Pointer mode (index and middle finger up)
-        elif fingers_up == [0, 1, 1, 0, 0]:
-            print("Gesture detected: Pointer Mode")
+        elif fingers_up == [0, 1, 1, 0, 0]:  # Index and middle finger up (Pointer Mode)
+            self.canvas_handler.set_drawing_mode(False)  # Exit drawing mode
             if self.canvas_handler.canvas:
                 self.canvas_handler.canvas.delete("pointer")
                 self.canvas_handler.canvas.create_oval(
@@ -141,9 +146,8 @@ class CameraHandler:
                 )
                 self.last_x, self.last_y = None, None  # Reset drawing positions
 
-                # Check if the pointer is over any color button
-                self.canvas_handler.check_pointer_over_buttons(screen_x, screen_y)
-
+            # Check if the pointer is hovering over a button
+            self.canvas_handler.check_pointer_over_buttons(screen_x, screen_y)
         # Video control with thumb and index finger
         if fingers_up == [1, 1, 0, 0, 0] and not self.video_toggle_cooldown:
             print("Gesture detected: Toggle Video")
