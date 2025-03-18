@@ -14,7 +14,7 @@ AIR TRACKER is an innovative application that enables gesture-based control for 
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/username/AIR-TRACKER.git
    cd AIR-TRACKER
    ```
 
