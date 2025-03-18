@@ -1,0 +1,10 @@
+opencv-python
+Pillow
+cvzone
+pyautogui
+keras
+mediapipe
+comtypes
+pynput
+customtkinter
+pywin32
