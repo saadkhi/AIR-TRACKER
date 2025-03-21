@@ -50,7 +50,6 @@ AIR TRACKER is an innovative application that enables gesture-based control for 
 AIR-TRACKER/
 ├── main.py               # Main GUI application
 ├── utils.py              # Utility functions for PowerPoint control
-├── new.py                # Gesture detection and camera handling
 ├── canvas_handler.py     # Virtual canvas overlay functionality
 ├── camera.py             # Camera feed and gesture processing
 ├── requirements.txt      # Project dependencies
