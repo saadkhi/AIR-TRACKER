@@ -54,6 +54,7 @@ AIR-TRACKER/
 ├── camera.py             # Camera feed and gesture processing
 ├── requirements.txt      # Project dependencies
 ├── media/                # Media assets (icons, images)
+├── models/               # Models
 └── README.md             # Project documentation
 ```
 
