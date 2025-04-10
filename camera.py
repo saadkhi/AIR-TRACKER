@@ -42,6 +42,8 @@ class CameraHandler:
         self.drawing_positions = [[]]  # List to store drawing strokes
         self.canvas_handler = CanvasHandler(master, self) # Pass root to CanvasHandler
         self.current_tool = 'pen'  # Default tool
+        self.gesture_error_count = 0
+        self.max_gesture_errors = 5
     
     def set_drawing_color(self, color):
         """Sets the current drawing color."""
@@ -89,7 +91,14 @@ class CameraHandler:
                 screen_x = int(self.screen_width * (indexfinger[0] / self.width))
                 screen_y = int(self.screen_height * (indexfinger[1] / self.height))
 
-                self.handle_gestures(fingers_up, screen_x, screen_y, indexfinger)
+                try:
+                    self.handle_gestures(fingers_up, screen_x, screen_y, indexfinger)
+                    self.gesture_error_count = 0  # Reset error count on successful gesture
+                except Exception as e:
+                    self.gesture_error_count += 1
+                    if self.gesture_error_count >= self.max_gesture_errors:
+                        self.reset_camera()
+                    print(f"Gesture detection error: {str(e)}")
 
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img_pil = Image.fromarray(img_rgb)
@@ -102,6 +111,14 @@ class CameraHandler:
 
     def handle_gestures(self, fingers_up, screen_x, screen_y, indexfinger):
         """Handles gestures based on finger configurations."""
+        try:
+            if self.canvas_handler and self.canvas_handler.is_canvas_active:
+                self.canvas_handler.check_pointer_over_buttons(screen_x, screen_y)
+        except AttributeError:
+            # Reset canvas handler if it's in an invalid state
+            self.canvas_handler = None
+            print("Canvas handler reset due to error")
+
         # Canvas activation/deactivation
         if fingers_up == [0, 1, 0, 0, 1]:  # Index and pinky fingers
             if not self.canvas_handler.canvas_cooldown:
@@ -318,6 +335,13 @@ class CameraHandler:
     def reset_close_cooldown(self):
         """Resets the close application cooldown."""
         self.close_cooldown = False
+
+    def reset_camera(self):
+        # Reset camera and gesture detection state
+        self.gesture_error_count = 0
+        if self.canvas_handler:
+            self.canvas_handler.is_canvas_active = False
+        # ...existing code...
 
 def start_camera(camera_label):
     """Starts the camera feed and initializes gesture detection."""
