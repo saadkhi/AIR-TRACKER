@@ -1,11 +1,22 @@
 import os
 import threading
 import ctypes
+import time
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import Tk, filedialog, messagebox, Label, Frame, X, BOTTOM
 from PIL import Image, ImageTk
 from utils import focus_powerpoint_window, run_powerpoint, initialize_listener
+
+# Add gesture management variables
+last_gesture_time = 0
+gesture_cooldown = 1.0  # 1 second cooldown between gestures
+wrong_gesture_count = 0
+max_wrong_gestures = 5
+
+def reset_gesture_counter():
+    global wrong_gesture_count
+    wrong_gesture_count = 0
 
 # Initialize mouse listener for focusing PowerPoint
 initialize_listener()
@@ -44,6 +55,7 @@ if os.name == 'nt':
     root.iconbitmap(icon_path)
 
 def run_presentation():
+    global wrong_gesture_count, last_gesture_time
     ppt_file = filedialog.askopenfilename(
         title="Select PowerPoint file",
         filetypes=[("PowerPoint Files", "*.pptx *.ppt")]
@@ -52,7 +64,39 @@ def run_presentation():
         try:
             if os.path.exists(ppt_file):
                 root.iconify()
-                threading.Thread(target=run_powerpoint, args=(ppt_file, root), daemon=True).start()
+                # Reset gesture counter when starting new presentation
+                reset_gesture_counter()
+                
+                def monitored_powerpoint():
+                    global wrong_gesture_count, last_gesture_time
+                    try:
+                        run_powerpoint(ppt_file, root)
+                    except Exception as e:
+                        current_time = time.time()
+                        if current_time - last_gesture_time >= gesture_cooldown:
+                            last_gesture_time = current_time
+                            wrong_gesture_count += 1
+                            
+                            if wrong_gesture_count >= max_wrong_gestures:
+                                messagebox.showwarning(
+                                    "Gesture Warning",
+                                    "Too many incorrect gestures detected. Presentation will be reset."
+                                )
+                                root.deiconify()
+                                reset_gesture_counter()
+                                return
+                            
+                            if "RPC server is unavailable" in str(e):
+                                messagebox.showwarning(
+                                    "PowerPoint Error",
+                                    "Lost connection to PowerPoint. The presentation will be closed.\n"
+                                    "Please try opening the presentation again."
+                                )
+                                root.deiconify()
+                            else:
+                                messagebox.showerror("Error", f"An error occurred: {e}")
+                
+                threading.Thread(target=monitored_powerpoint, daemon=True).start()
             else:
                 messagebox.showerror("File Not Found", f"The file could not be found: {ppt_file}")
         except Exception as e:

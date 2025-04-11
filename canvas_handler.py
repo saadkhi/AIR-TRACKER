@@ -262,40 +262,48 @@ class CanvasHandler:
 
     def check_pointer_over_buttons(self, x, y):
         """Checks if the pointer is over any color or tool button and changes the color or tool accordingly."""
-        hovered = False  # Track if the pointer is over any button
+        try:
+            if not self.is_canvas_active or self.canvas is None:
+                return
+            
+            hovered = False  # Track if the pointer is over any button
 
-        # Check color buttons
-        for button, color in self.color_buttons:
-            coords = self.canvas.coords(button)
-            if coords and len(coords) == 4:
-                x1, y1, x2, y2 = coords
-                if x1 <= x <= x2 and y1 <= y <= y2:
-                    self.set_color(color)
-                    self.on_hover(button, color)
-                    hovered = True  # Pointer is on a button
-                else:
-                    self.on_leave(button, color)  # Reset hover effect when leaving
+            # Check color buttons
+            for button, color in self.color_buttons:
+                coords = self.canvas.coords(button)
+                if coords and len(coords) == 4:
+                    x1, y1, x2, y2 = coords
+                    if x1 <= x <= x2 and y1 <= y <= y2:
+                        self.set_color(color)
+                        self.on_hover(button, color)
+                        hovered = True  # Pointer is on a button
+                    else:
+                        self.on_leave(button, color)  # Reset hover effect when leaving
 
-        # Check tool buttons (pen, highlighter, eraser)
-        for button, tool, _ in self.tool_buttons:
-            coords = self.canvas.coords(button)
-            if coords and len(coords) == 2:  # Image-based buttons have (x, y) coords
-                x1, y1 = coords
-                x2, y2 = x1 + 70, y1 + 70  # Assume button size is 70x70
-                if x1 <= x <= x2 and y1 <= y <= y2:
-                    self.set_tool(tool)
-                    self.on_tool_hover(button, tool)  # Visual effect when hovering
-                    hovered = True  # Pointer is on a button
-                else:
-                    self.on_tool_leave(button, tool)  # Reset hover effect when leaving
+            # Check tool buttons (pen, highlighter, eraser)
+            for button, tool, _ in self.tool_buttons:
+                coords = self.canvas.coords(button)
+                if coords and len(coords) == 2:  # Image-based buttons have (x, y) coords
+                    x1, y1 = coords
+                    x2, y2 = x1 + 70, y1 + 70  # Assume button size is 70x70
+                    if x1 <= x <= x2 and y1 <= y <= y2:
+                        self.set_tool(tool)
+                        self.on_tool_hover(button, tool)  # Visual effect when hovering
+                        hovered = True  # Pointer is on a button
+                    else:
+                        self.on_tool_leave(button, tool)  # Reset hover effect when leaving
 
-        # If the pointer is not over any button, reset cursor style
-        if not hovered:
-            self.canvas.config(cursor="arrow")
-            self.root.config(cursor="arrow")
-            self.root.config(cursor="arrow")
+            # If the pointer is not over any button, reset cursor style
+            if not hovered:
+                self.canvas.config(cursor="arrow")
+                self.root.config(cursor="arrow")
+                self.root.config(cursor="arrow")
 
-        return hovered  # Return whether the pointer is over a button
+            return hovered  # Return whether the pointer is over a button
+        except AttributeError:
+            # Silently handle canvas errors
+            self.is_canvas_active = False
+            pass
 
     def toggle_canvas(self):
         """Toggles the canvas overlay on and off without shifting position."""
