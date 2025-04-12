@@ -111,47 +111,39 @@ class CameraHandler:
 
     def handle_gestures(self, fingers_up, screen_x, screen_y, indexfinger):
         """Handles gestures based on finger configurations."""
-        try:
-            if self.canvas_handler and self.canvas_handler.is_canvas_active:
-                self.canvas_handler.check_pointer_over_buttons(screen_x, screen_y)
-        except AttributeError:
-            # Reset canvas handler if it's in an invalid state
-            self.canvas_handler = None
-            print("Canvas handler reset due to error")
-
         # Canvas activation/deactivation
         if fingers_up == [0, 1, 0, 0, 1]:  # Index and pinky fingers
             if not self.canvas_handler.canvas_cooldown:
                 self.canvas_handler.toggle_canvas()
                 self.canvas_handler.canvas_cooldown = True
                 self.camera_label.after(2000, self.canvas_handler.reset_canvas_cooldown)
-            else:
-                # If cooldown is active, do not toggle the canvas
-                pass
         
-        if fingers_up == [0, 1, 0, 0, 0]:  # Index finger up (drawing mode with pointer)
+        if fingers_up == [0, 1, 0, 0, 0]:  # Index finger up (drawing mode)
             self.canvas_handler.set_drawing_mode(True)
             if self.canvas_handler.canvas:
-                x, y = screen_x, screen_y
-
-                # Ensure pointer moves along while drawing
+                # Show pointer for all tools (pen, highlighter, eraser)
+                pointer_size = 5  # Default size for pen
+                if self.canvas_handler.current_tool == 'highlighter':
+                    pointer_size = 15
+                elif self.canvas_handler.current_tool == 'eraser':
+                    pointer_size = 25
+                
                 self.canvas_handler.canvas.delete("pointer")
                 self.canvas_handler.canvas.create_oval(
-                    x - 5, y - 5, x + 5, y + 5,
-                    fill=self.canvas_handler.current_color, outline="black", tags="pointer"
+                    screen_x - pointer_size, screen_y - pointer_size, 
+                    screen_x + pointer_size, screen_y + pointer_size,
+                    fill=self.canvas_handler.current_color, 
+                    outline="black", 
+                    tags="pointer"
                 )
 
-                # 🚀 BLOCK DRAWING OVER BUTTONS!
-                if self.canvas_handler.check_pointer_over_buttons(x, y):
+                # Block drawing over buttons
+                if self.canvas_handler.check_pointer_over_buttons(screen_x, screen_y):
                     self.canvas_handler.set_drawing_mode(False)
                     return  
 
-                if self.last_x is not None and self.last_y is not None:
-                    self.canvas_handler.canvas.create_line(
-                        self.last_x, self.last_y, x, y, fill=self.canvas_handler.current_color, width=5, smooth=True
-                    )
-
-                self.last_x, self.last_y = x, y
+                # Draw on canvas
+                self.canvas_handler.draw_on_canvas(screen_x, screen_y)
 
         elif fingers_up == [0, 1, 1, 0, 0]:  # Index and middle finger up (Pointer Mode)
             self.canvas_handler.set_drawing_mode(False)  # Exit drawing mode
@@ -165,9 +157,9 @@ class CameraHandler:
 
             # Check if the pointer is hovering over a button
             self.canvas_handler.check_pointer_over_buttons(screen_x, screen_y)
-        # Video control with thumb and index finger
+
+        # Other gesture handling code...
         if fingers_up == [1, 1, 0, 0, 0] and not self.video_toggle_cooldown:
-            print("Gesture detected: Toggle Video")
             self.click_video()
             self.video_playing = not self.video_playing
             self.video_toggle_cooldown = True
@@ -175,38 +167,32 @@ class CameraHandler:
 
         # Enter key with last three fingers
         elif fingers_up == [0, 0, 1, 1, 1] and not self.enter_cooldown:  # Middle, ring, and pinky for enter
-            print("Gesture detected: Press Enter")
             pyautogui.press('enter')
             self.enter_cooldown = True
             self.camera_label.after(1000, self.reset_enter_cooldown)
 
         # Slide navigation
         elif fingers_up == [1, 0, 0, 0, 0] and not self.slide_toggle_cooldown:  # Thumb only for previous
-            print("Gesture detected: Move Slide Backward")
             self.move_slide_backward()
             self.slide_toggle_cooldown = True
             self.camera_label.after(1000, self.reset_slide_toggle_cooldown)
         elif fingers_up == [0, 0, 0, 0, 1] and not self.slide_toggle_cooldown:  # Pinky only for next
-            print("Gesture detected: Move Slide Forward")
             self.move_slide_forward()
             self.slide_toggle_cooldown = True
             self.camera_label.after(1000, self.reset_slide_toggle_cooldown)
 
         # Zoom controls
         elif fingers_up == [0, 1, 1, 1, 0] and not self.zoom_in_cooldown:  # Three middle fingers for zoom in
-            print("Gesture detected: Zoom In")
             self.trigger_zoom_in()
             self.zoom_in_cooldown = True
             self.camera_label.after(1500, self.reset_zoom_in_cooldown)
         elif fingers_up == [0, 1, 1, 1, 1] and not self.zoom_out_cooldown:  # Four fingers for zoom out
-            print("Gesture detected: Zoom Out")
             self.trigger_zoom_out()
             self.zoom_out_cooldown = True
             self.camera_label.after(1500, self.reset_zoom_out_cooldown)
 
         # Close application with thumb and pinky up
         elif fingers_up == [1, 0, 0, 0, 1] and not self.close_cooldown:
-            print("Gesture detected: Close Application")
             self.close_application()
             self.close_cooldown = True
             self.camera_label.after(2000, self.reset_close_cooldown)
