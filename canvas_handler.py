@@ -148,12 +148,15 @@ class CanvasHandler:
         if tool == 'eraser':
             self.current_color = 'grey'  # Use canvas background color as the eraser
             self.canvas.itemconfig(self.cursor, fill='grey')  # Update the cursor to grey
+            self.canvas.coords(self.cursor, 0, 0, 50, 50)  # Resize cursor for eraser (bigger)
         elif tool == 'pen':
             self.current_color = 'black'  # Default pen color
             self.canvas.itemconfig(self.cursor, fill='black')  # Update the cursor to black
+            self.canvas.coords(self.cursor, 0, 0, 10, 10)  # Resize cursor for pen (smaller)
         elif tool == 'highlighter':
             self.current_color = '#39FF14'  # Neon green color for highlighter
             self.canvas.itemconfig(self.cursor, fill='#39FF14')  # Update the cursor to neon green
+            self.canvas.coords(self.cursor, 0, 0, 50, 50)  # Resize cursor for highlighter (bigger)
 
         # Notify CameraHandler about the tool change
         if self.camera_handler:
@@ -228,33 +231,31 @@ class CanvasHandler:
             self.is_pen_active = False
             self.is_highlighter_active = False
 
-    def draw_on_canvas(self, event):
+    def draw_on_canvas(self, x, y):
         """Draws on the canvas but blocks strokes over buttons."""
         if not self.is_drawing_mode:
             return
 
-        x, y = event.x, event.y
-
-        # 🚀 BLOCK DRAWING OVER BUTTONS!
+        # 🚀 Block Drawing Over Buttons
         if self.check_pointer_over_buttons(x, y):
             return  # Stop drawing if pointer is over a button
 
-        # Set different line widths based on the current tool
+        # *Set Different Line Widths for Each Tool*
         if self.current_tool == 'pen':
-            line_width = 3  # Default pen width
+            line_width = 3  # Pen size (small)
         elif self.current_tool == 'highlighter':
-            line_width = 50  # Thicker line for highlighter
+            line_width = 15  # Highlighter size (increased)
         elif self.current_tool == 'eraser':
-            line_width = 50  # Thicker line for eraser
+            line_width = 25  # Eraser size (larger)
         else:
-            line_width = 3  # Default width for other tools
+            line_width = 3  # Default for other tools
 
+        # *Draw on Canvas*
         if self.last_x and self.last_y:
-            self.canvas.create_line(self.last_x, self.last_y, x, y, fill=self.current_color, width=line_width, capstyle="round")
+            self.canvas.create_line(self.last_x, self.last_y, x, y, 
+                                    fill=self.current_color, width=line_width, capstyle="round")
 
         self.last_x, self.last_y = x, y
-
-
 
     def reset_last_position(self, event):
         """Resets the last drawing position."""
