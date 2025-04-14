@@ -8,14 +8,18 @@ from tkinter import Label
 import comtypes.client
 import keras
 from canvas_handler import CanvasHandler
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 # Set Keras backend to "jax"
 os.environ["KERAS_BACKEND"] = "jax"
 
-# Import Keras and load the model with error handling
+# Replace Keras model loading with Hugging Face model loading
 try:
-    model = keras.saving.load_model("hf://saaday5/hand_gesture_model")
-except FileNotFoundError as e:
+    # Example: Replace with the correct model ID or path
+    model_name = "saaday5/hand_gesture_model"
+    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+except Exception as e:
     print(f"Error loading model: {e}")
 
 class CameraHandler:
@@ -182,14 +186,14 @@ class CameraHandler:
             self.camera_label.after(1000, self.reset_slide_toggle_cooldown)
 
         # Zoom controls
-        elif fingers_up == [0, 1, 1, 1, 0] and not self.zoom_in_cooldown:  # Three middle fingers for zoom in
-            self.trigger_zoom_in()
-            self.zoom_in_cooldown = True
-            self.camera_label.after(1500, self.reset_zoom_in_cooldown)
-        elif fingers_up == [0, 1, 1, 1, 1] and not self.zoom_out_cooldown:  # Four fingers for zoom out
-            self.trigger_zoom_out()
-            self.zoom_out_cooldown = True
-            self.camera_label.after(1500, self.reset_zoom_out_cooldown)
+        # elif fingers_up == [0, 1, 1, 1, 0] and not self.zoom_in_cooldown:  # Three middle fingers for zoom in
+        #     self.trigger_zoom_in()
+        #     self.zoom_in_cooldown = True
+        #     self.camera_label.after(1500, self.reset_zoom_in_cooldown)
+        # elif fingers_up == [0, 1, 1, 1, 1] and not self.zoom_out_cooldown:  # Four fingers for zoom out
+        #     self.trigger_zoom_out()
+        #     self.zoom_out_cooldown = True
+        #     self.camera_label.after(1500, self.reset_zoom_out_cooldown)
 
         # Close application with thumb and pinky up
         elif fingers_up == [1, 0, 0, 0, 1] and not self.close_cooldown:
