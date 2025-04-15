@@ -61,8 +61,8 @@ class CanvasHandler:
         """Adds a color palette inside the canvas."""
         colors = ['black', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']  # Define the colors for the palette
 
-        button_size = 70  # Reduced button size
-        padding = 10  # Reduced padding between buttons
+        button_size = 40  # Reduced button size
+        padding = 5  # Reduced padding between buttons
         total_width = len(colors) * (button_size + padding) - padding  # Calculate total width of the palette
         screen_width = self.root.winfo_screenwidth()
 
