@@ -8,3 +8,6 @@ comtypes
 pynput
 customtkinter
 pywin32
+numpy  # Added for numerical computations
+matplotlib  # Added for plotting and visualization
+scipy  # Added for scientific computations
