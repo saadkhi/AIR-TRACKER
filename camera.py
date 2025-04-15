@@ -170,10 +170,10 @@ class CameraHandler:
             self.camera_label.after(2000, self.reset_video_toggle_cooldown)
 
         # Enter key with last three fingers
-        elif fingers_up == [0, 0, 1, 1, 1] and not self.enter_cooldown:  # Middle, ring, and pinky for enter
-            pyautogui.press('enter')
-            self.enter_cooldown = True
-            self.camera_label.after(1000, self.reset_enter_cooldown)
+        # elif fingers_up == [0, 0, 1, 1, 1] and not self.enter_cooldown:  # Middle, ring, and pinky for enter
+        #     pyautogui.press('enter')
+        #     self.enter_cooldown = True
+        #     self.camera_label.after(1000, self.reset_enter_cooldown)
 
         # Slide navigation
         elif fingers_up == [1, 0, 0, 0, 0] and not self.slide_toggle_cooldown:  # Thumb only for previous
