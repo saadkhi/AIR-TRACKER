@@ -79,6 +79,7 @@ The project uses the following Python libraries:
 - `comtypes`
 - `pywin32`
 - `matplotlib`
+- `scipy`
 
 Refer to `requirements.txt` for exact versions.
 
