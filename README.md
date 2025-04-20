@@ -78,6 +78,7 @@ The project uses the following Python libraries:
 - `pynput`
 - `comtypes`
 - `pywin32`
+- `matplotlib`
 
 Refer to `requirements.txt` for exact versions.
 
