@@ -100,30 +100,17 @@ def run_powerpoint(ppt_file, root):
             raise Exception("Slideshow mode could not be started. Please ensure the PowerPoint file is valid.")
         print("Displaying camera overlay...")
         display_camera_overlay(root)
-        while powerpoint.SlideShowWindows.Count > 0:
+
+        # Monitor PowerPoint process
+        while True:
             time.sleep(0.5)
+            if powerpoint.SlideShowWindows.Count == 0:  # Check if slideshow is closed
+                print("PowerPoint slideshow closed.")
+                break
+
     except comtypes.COMError as e:
         print(f"Error running PowerPoint presentation: {e}")
-        if e.hresult == -2147418111:
-            for attempt in range(1, 4):
-                print(f"COM call failed (attempt {attempt}), retrying...")
-                time.sleep(2)
-                try:
-                    powerpoint = comtypes.client.CreateObject("PowerPoint.Application")
-                    powerpoint.Visible = True
-                    presentation = powerpoint.Presentations.Open(ppt_file)
-                    presentation.SlideShowSettings.Run()
-                    time.sleep(2)
-                    display_camera_overlay(root)
-                    break
-                except comtypes.COMError as retry_e:
-                    print(f"Retry attempt {attempt} failed: {retry_e}")
-                    if attempt == 3:
-                        print("Max retry attempts reached. Exiting.")
-                        return
-        else:
-            print(f"Unhandled COM error: {e}")
-            return
+        messagebox.showerror("Error", f"An error occurred: {e}")
     except Exception as e:
         print(f"Error running PowerPoint presentation: {e}")
         messagebox.showerror("Error", f"An error occurred: {e}")
@@ -142,6 +129,9 @@ def run_powerpoint(ppt_file, root):
         if overlay_window and overlay_window.winfo_exists():
             overlay_window.destroy()
         pythoncom.CoUninitialize()
+
+        # Bring the desktop app back to the foreground
+        root.deiconify()
 
 def display_camera_overlay(root):
     global overlay_window
