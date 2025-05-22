@@ -39,7 +39,8 @@ header_label.pack(pady=10)
 
 # Load and display the image
 try:
-    image_path = "media/hand.png"
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    image_path = os.path.join(BASE_DIR, "media", "hand.png")
     original_image = Image.open(image_path)
     resized_image = original_image.resize((300, 300))
     my_image = ImageTk.PhotoImage(resized_image)
@@ -49,7 +50,7 @@ except Exception as e:
     messagebox.showerror("Error", f"Could not load image: {e}")
 
 # Set the icon on Windows
-icon_path = "media/hand.ico"
+icon_path = os.path.join(BASE_DIR, "media", "hand.ico")
 if os.name == 'nt':
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(u"MyAppID")
     root.iconbitmap(icon_path)
