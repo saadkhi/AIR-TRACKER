@@ -12,7 +12,7 @@ from utils import focus_powerpoint_window, run_powerpoint, initialize_listener
 last_gesture_time = 0
 gesture_cooldown = 1.0  # 1 second cooldown between gestures
 wrong_gesture_count = 0
-max_wrong_gestures = 5
+max_wrong_gestures = 1
 
 def reset_gesture_counter():
     global wrong_gesture_count

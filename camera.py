@@ -196,8 +196,8 @@ class CameraHandler:
         #     self.camera_label.after(1500, self.reset_zoom_out_cooldown)
 
         # Close application with thumb and pinky up
-        elif fingers_up == [1, 0, 0, 0, 1] and not self.close_cooldown:
-            self.close_application()
+        elif fingers_up == [1, 0, 0, 0, 1] and not self.close_cooldown:  # Thumb and pinky up
+            self.close_application()  # Close PowerPoint and bring app back
             self.close_cooldown = True
             self.camera_label.after(2000, self.reset_close_cooldown)
 
@@ -290,9 +290,9 @@ class CameraHandler:
             print(f"Error performing zoom-in: {e}")
 
     def close_application(self):
-        """Closes the application with quick cleanup."""
+        """Closes the PowerPoint presentation and brings the app back to the foreground."""
         try:
-            # Force quit PowerPoint first to prevent any prompts
+            # Force quit PowerPoint to prevent any prompts
             os.system('taskkill /F /IM POWERPNT.EXE')
             
             # Release camera resources
@@ -300,11 +300,10 @@ class CameraHandler:
                 self.cap.release()
             cv2.destroyAllWindows()
 
-            # Immediate exit
-            os._exit(0)
-        except:
-            # Force exit if any error occurs
-            os._exit(0)
+            # Bring the app back to the foreground
+            self.master.deiconify()  # Ensure the app window is brought back
+        except Exception as e:
+            print(f"Error closing application: {e}")
 
     def reset_video_toggle_cooldown(self):
         self.video_toggle_cooldown = False

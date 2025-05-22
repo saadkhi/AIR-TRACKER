@@ -13,17 +13,16 @@ import win32con
 overlay_window = None
 powerpoint_lock = threading.Lock()
 
-def safe_com_call(func, max_retries=5, delay=1, *args, **kwargs):
+def safe_com_call(func, max_retries=10, delay=2, *args, **kwargs):  # Increased retries and delay
     for attempt in range(max_retries):
         try:
             return func(*args, **kwargs)
         except comtypes.COMError as e:
+            print(f"COM call failed (attempt {attempt + 1}/{max_retries}): {e}")
             if attempt < max_retries - 1:
-                print(f"COM call failed (attempt {attempt + 1}), retrying...")
                 time.sleep(delay)
             else:
-                print(f"COM call failed after {max_retries} attempts.")
-                raise e
+                raise
 
 def initialize_listener():
     def on_click(x, y, button, pressed):
@@ -54,6 +53,7 @@ def close_activation_dialog():
         print(f"Error while closing activation dialog: {e}")
 
 def force_kill_powerpoint():
+    """Forcefully kill all PowerPoint processes."""
     try:
         print("Forcefully killing all PowerPoint processes...")
         subprocess.run(["taskkill", "/F", "/IM", "POWERPNT.EXE"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -61,7 +61,16 @@ def force_kill_powerpoint():
     except subprocess.CalledProcessError as e:
         print(f"Error forcefully killing PowerPoint processes: {e}")
 
-def wait_for_powerpoint_ready(powerpoint, timeout=30):
+def restart_powerpoint():
+    """Forcefully restart PowerPoint."""
+    try:
+        print("Restarting PowerPoint...")
+        subprocess.run(["taskkill", "/F", "/IM", "POWERPNT.EXE"], check=True)
+        time.sleep(2)  # Wait for PowerPoint to close
+    except subprocess.CalledProcessError as e:
+        print(f"Error restarting PowerPoint: {e}")
+
+def wait_for_powerpoint_ready(powerpoint, timeout=60):  # Increased timeout to 60 seconds
     start_time = time.time()
     while True:
         try:
@@ -109,8 +118,15 @@ def run_powerpoint(ppt_file, root):
                 break
 
     except comtypes.COMError as e:
-        print(f"Error running PowerPoint presentation: {e}")
-        messagebox.showerror("Error", f"An error occurred: {e}")
+        print(f"COM Error: {e}")
+        if "RPC server is unavailable" in str(e):
+            print("PowerPoint COM object lost connection. Forcefully killing PowerPoint...")
+            force_kill_powerpoint()
+            messagebox.showwarning(
+                "PowerPoint Error",
+                "Lost connection to PowerPoint. The presentation will be closed.\n"
+                "Please try opening the presentation again."
+            )
     except Exception as e:
         print(f"Error running PowerPoint presentation: {e}")
         messagebox.showerror("Error", f"An error occurred: {e}")
@@ -126,17 +142,19 @@ def run_powerpoint(ppt_file, root):
                 safe_com_call(powerpoint.Quit, max_retries=5, delay=1)
             except Exception as e:
                 print(f"Error quitting PowerPoint application: {e}")
+                force_kill_powerpoint()  # Force kill PowerPoint if quitting fails
         if overlay_window and overlay_window.winfo_exists():
-            overlay_window.destroy()
+            print("Destroying camera overlay window...")
+            overlay_window.destroy()  # Ensure the camera overlay is closed
         pythoncom.CoUninitialize()
 
         # Bring the desktop app back to the foreground
-        root.deiconify()
+        root.deiconify()  # Ensure the app window is brought back to the foreground
 
 def display_camera_overlay(root):
     global overlay_window
     if overlay_window and overlay_window.winfo_exists():
-        overlay_window.destroy()
+        overlay_window.destroy()  # Destroy any existing overlay window
     overlay_window = Toplevel(root)
     overlay_window.title("Camera Feed Overlay")
     overlay_window.attributes('-topmost', True)
