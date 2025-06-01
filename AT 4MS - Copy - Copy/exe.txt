@@ -1,0 +1,6 @@
+pyinstaller --name "AIR-TRACKER" --onedir -w --add-data "media;media" --add-binary "C:\Windows\System32\msvcp140.dll;." --add-binary "C:\Windows\System32\msvcp140_1.dll;." --add-binary "C:\Windows\System32\msvcp140_2.dll;." --add-binary "C:\Windows\System32\vcruntime140.dll;." --add-binary "C:\Windows\System32\vcruntime140_1.dll;." --hidden-import cv2 --hidden-import cv2.data --hidden-import mediapipe --collect-data mediapipe --hidden-import cvzone.HandTrackingModule --hidden-import PIL --hidden-import PIL.Image --hidden-import PIL.ImageTk --hidden-import numpy --hidden-import pyautogui --hidden-import comtypes --hidden-import comtypes.client --hidden-import comtypes.gen --hidden-import comtypes.client._code_cache --hidden-import customtkinter --hidden-import tkinter --hidden-import tkinter.messagebox --hidden-import win32gui --hidden-import win32con --hidden-import pynput --hidden-import pynput.mouse --hidden-import tensorflow --hidden-import tensorflow.python --hidden-import tensorflow.python.platform --collect-data cvzone --collect-data comtypes main.py
+
+
+
+web email: crazythingszzz@gmail.com
+web password: Trackerair1
