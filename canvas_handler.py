@@ -1,7 +1,7 @@
 import tkinter as tk
 from PIL import Image, ImageTk
-import pyautogui
-import time
+import os
+import sys
 
 class CanvasHandler:
     def __init__(self, root, camera_handler):
@@ -20,6 +20,15 @@ class CanvasHandler:
         self.canvas_x_offset = 0  # Initial offset, starts at 0
         self.canvas_shift_amount = 20  # Pixels to shift right each time
         self.is_drawing_mode = False  # New state variable to track drawing mode
+
+    def resource_path(self, relative_path):
+        """Get absolute path to resource, works for dev and for PyInstaller"""
+        try:
+            # PyInstaller creates a temp folder and stores path in _MEIPASS
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = os.path.abspath(".")
+        return os.path.join(base_path, relative_path)
 
     def set_drawing_mode(self, is_drawing):
         """Set the drawing mode."""
@@ -90,9 +99,9 @@ class CanvasHandler:
     def add_tool_buttons(self):
         """Adds tool buttons (pen, highlighter, eraser) inside the canvas."""
         tools = [
-            ('pen', r"media\pen.png"),
-            ('highlighter', r"media\highlighter.png"),
-            ('eraser', r"media\eraser.png")
+            ('pen', self.resource_path(os.path.join('media', 'pen.png'))),
+            ('highlighter', self.resource_path(os.path.join('media', 'highlighter.png'))),
+            ('eraser', self.resource_path(os.path.join('media', 'eraser.png')))
         ]
 
         button_size = 70  # Reduced button size
