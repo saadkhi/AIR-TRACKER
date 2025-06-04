@@ -98,4 +98,4 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 - [OpenCV](https://opencv.org/) for image processing.
 - [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) for the modern GUI.
 
-Feel free to contribute to the project by submitting issues or pull requests! Thank you :)
+Feel free to contribute to the project by submitting issues or pull requests! Thank you.
