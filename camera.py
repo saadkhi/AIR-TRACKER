@@ -1,26 +1,14 @@
 import os
 import cv2
 from PIL import Image, ImageTk
-from cvzone.HandTrackingModule import HandDetector
 import pyautogui
 import time
 from tkinter import Label
 import comtypes.client
-import keras
 from canvas_handler import CanvasHandler
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+import tkinter.messagebox as messagebox
+import numpy as np
 
-# Set Keras backend to "jax"
-os.environ["KERAS_BACKEND"] = "jax"
-
-# Replace Keras model loading with Hugging Face model loading
-try:
-    # Example: Replace with the correct model ID or path
-    model_name = "saaday5/hand_gesture_model"
-    model = AutoModelForSequenceClassification.from_pretrained(model_name)
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-except Exception as e:
-    print(f"Error loading model: {e}")
 
 class CameraHandler:
     """Handles the camera feed and gesture detection."""
@@ -28,9 +16,8 @@ class CameraHandler:
     def __init__(self, camera_label, master):
         self.camera_label = camera_label
         self.master = master
-        self.detector = HandDetector(detectionCon=0.7, maxHands=1)
-        self.cap = cv2.VideoCapture(0)
-        self.width, self.height = 300, 200
+        self.detector = None  # Delay HandDetector creation
+        self.cap = None       # Delay camera creation
         self.video_toggle_cooldown = False
         self.slide_toggle_cooldown = False
         self.zoom_out_cooldown = False
@@ -48,6 +35,9 @@ class CameraHandler:
         self.current_tool = 'pen'  # Default tool
         self.gesture_error_count = 0
         self.max_gesture_errors = 5
+        self.zoom_level = 0  # Default zoom level
+        self.frame_width = None
+        self.frame_height = None
     
     def set_drawing_color(self, color):
         """Sets the current drawing color."""
@@ -66,22 +56,114 @@ class CameraHandler:
             self.is_pen_active = False
             self.is_highlighter_active = False
 
+    def set_zoom_level(self, level):
+        """Sets the camera zoom level."""
+        self.zoom_level = level
+        if self.cap and self.cap.isOpened():
+            if level == 1:  # 1x zoom
+                self.cap.set(cv2.CAP_PROP_ZOOM, 100)  # Set to 100% zoom
+            elif level == 2:  # 3x zoom
+                self.cap.set(cv2.CAP_PROP_ZOOM, 300)  # Set to 300% zoom
+            else:  # Default no zoom
+                self.cap.set(cv2.CAP_PROP_ZOOM, 0)  # Reset zoom
+
+    def apply_zoom(self, frame):
+        """Applies zoom to the camera frame using ROI cropping method."""
+        if self.zoom_level == 0:  # Default, no zoom
+            return frame
+        
+        # Get frame dimensions
+        height, width = frame.shape[:2]
+        
+        if self.zoom_level == 1:  # 1x zoom - crop center 75% of the frame
+            # Calculate crop coordinates (12.5% from each side)
+            x1 = int(width * 0.125)
+            y1 = int(height * 0.125)
+            x2 = int(width * 0.875)
+            y2 = int(height * 0.875)
+        else:  # 2x zoom - crop center 60% of the frame (1/5 to 4/5)
+            # Calculate crop coordinates (20% from each side)
+            x1 = int(width / 4.5)
+            y1 = int(height / 4.5)
+            x2 = int(width * 3.5 / 4.5)
+            y2 = int(height * 3.5 / 4.5)
+        
+        # Crop the frame to zoom region
+        cropped_frame = frame[y1:y2, x1:x2]
+        
+        # Resize back to original size
+        zoomed = cv2.resize(cropped_frame, (width, height), interpolation=cv2.INTER_LINEAR)
+        
+        return zoomed
+
     def start_camera(self):
         """Starts the camera feed and initializes gesture detection."""
-        if not self.cap.isOpened():
-            print("Error: Could not open video device.")
-            return
-
-        self.cap.set(3, self.width)  # Set width
-        self.cap.set(4, self.height)  # Set height
-
-        self.update_frame()
+        try:
+            import cv2
+            from cvzone.HandTrackingModule import HandDetector
+            
+            # Initialize detector
+            self.detector = HandDetector(detectionCon=0.7, maxHands=1)
+            
+            # Initialize camera
+            self.cap = cv2.VideoCapture(0)
+            
+            if not self.cap.isOpened():
+                messagebox.showerror("Camera Error", "Could not open video device. Please ensure your camera is connected and not in use by another application.")
+                return
+            
+            # Get screen dimensions
+            screen_width = self.master.winfo_screenwidth()
+            
+            # Set camera resolution based on screen size
+            if screen_width >= 1920:  # 1080p and higher
+                self.width, self.height = 1280, 720  # HD resolution
+            else:  # Lower resolutions
+                self.width, self.height = 640, 480
+                
+            # Try to set camera properties
+            try:
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+                
+                # Store original frame dimensions
+                self.frame_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                self.frame_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                
+                # Get initial zoom level from master window if available
+                if hasattr(self.master, 'current_zoom_level'):
+                    self.zoom_level = self.master.current_zoom_level
+                
+                # Verify if the camera accepted our resolution settings
+                actual_width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+                actual_height = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+                
+                if abs(actual_width - self.width) > 50 or abs(actual_height - self.height) > 50:
+                    print(f"Warning: Camera using different resolution. Requested: {self.width}x{self.height}, Got: {actual_width}x{actual_height}")
+                
+            except Exception as e:
+                print(f"Warning: Could not set camera resolution: {e}")
+                
+            self.update_frame()
+            
+        except ImportError as e:
+            messagebox.showerror("Import Error", f"Required module not found: {e}\nPlease ensure all dependencies are installed.")
+        except Exception as e:
+            messagebox.showerror("Camera Error", f"Failed to initialize camera: {e}\nPlease check your camera connection and permissions.")
 
     def update_frame(self):
         """Captures frames from the camera and processes gestures."""
+        if not self.cap or not self.cap.isOpened():
+            return
+            
         success, img = self.cap.read()
         if success:
+            # Apply zoom if needed
+            img = self.apply_zoom(img)
+            
+            # Flip the image horizontally for more intuitive interaction
             img = cv2.flip(img, 1)
+            
             hands, img = self.detector.findHands(img)
 
             if hands:
@@ -89,7 +171,7 @@ class CameraHandler:
                 fingers_up = self.detector.fingersUp(hand)
                 lm_index = hand['lmList'][8] 
                 lmlist = hand['lmList']
-                indexfinger = lmlist[8][0], lmlist[8][1]  # Index finger tip coordinates
+                indexfinger = lmlist[8][0], lmlist[8][1]
                 
                 # Map camera coordinates to screen coordinates
                 screen_x = int(self.screen_width * (indexfinger[0] / self.width))
@@ -97,21 +179,23 @@ class CameraHandler:
 
                 try:
                     self.handle_gestures(fingers_up, screen_x, screen_y, indexfinger)
-                    self.gesture_error_count = 0  # Reset error count on successful gesture
+                    self.gesture_error_count = 0
                 except Exception as e:
                     self.gesture_error_count += 1
                     if self.gesture_error_count >= self.max_gesture_errors:
                         self.reset_camera()
                     print(f"Gesture detection error: {str(e)}")
 
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            # Resize for display in the overlay window
+            display_img = cv2.resize(img, (300, 200))
+            img_rgb = cv2.cvtColor(display_img, cv2.COLOR_BGR2RGB)
             img_pil = Image.fromarray(img_rgb)
             img_tk = ImageTk.PhotoImage(image=img_pil)
 
-            self.camera_label.img_tk = img_tk
-            self.camera_label.config(image=img_tk)
-
-        self.camera_label.after(30, self.update_frame)
+            if hasattr(self, 'camera_label') and self.camera_label.winfo_exists():
+                self.camera_label.img_tk = img_tk
+                self.camera_label.config(image=img_tk)
+                self.camera_label.after(30, self.update_frame)
 
     def handle_gestures(self, fingers_up, screen_x, screen_y, indexfinger):
         """Handles gestures based on finger configurations."""
@@ -292,6 +376,12 @@ class CameraHandler:
     def close_application(self):
         """Closes the PowerPoint presentation and brings the app back to the foreground."""
         try:
+            # Close the canvas if it exists and is active
+            if hasattr(self, 'canvas_handler') and self.canvas_handler is not None:
+                if self.canvas_handler.is_canvas_active:
+                    self.canvas_handler.clear_canvas()
+                    self.canvas_handler.is_canvas_active = False
+            
             # Force quit PowerPoint to prevent any prompts
             os.system('taskkill /F /IM POWERPNT.EXE')
             
