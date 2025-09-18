@@ -32,7 +32,7 @@ AIR TRACKER is an innovative application that enables gesture-based control for 
    python main.py
    ```
 
-2. Use the GUI to upload a PowerPoint file and start the presentation.
+2. Use the graphical unit to upload a PowerPoint file and start the presentation.
 
 3. Use the following gestures for control:
    - **Index and Pinky Fingers Up**: Toggle the virtual canvas.
