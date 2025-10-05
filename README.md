@@ -62,7 +62,7 @@ AIR-TRACKER/
 
 - Python 3.8 or higher
 - A webcam for gesture detection
-- Windows OS (for PowerPoint integration)
+- Windows OS (for PowerPoint integration only )
 
 ## Dependencies
 
