@@ -4,7 +4,7 @@ AIR TRACKER is an innovative application that enables gesture-based control for 
 
 ## Features
 
-- **Gesture-Based Control**: Navigate slides, zoom in/out, and toggle video playback using hand gestures.
+- **Gesture Based Control**: Navigate slides, zoom in/out, and toggle video playback using hand gestures.
 - **Virtual Canvas**: Draw, highlight, or erase on a virtual canvas overlay.
 - **Camera Feed Overlay**: Display a live camera feed during presentations.
 - **PowerPoint Integration**: Open, control, and close PowerPoint presentations programmatically.
